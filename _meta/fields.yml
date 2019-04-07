@@ -1,0 +1,9 @@
+- key: gtfsbeat
+  title: gtfsbeat
+  description:
+  fields:
+    - name: counter
+      type: long
+      required: true
+      description: >
+        PLEASE UPDATE DOCUMENTATION
