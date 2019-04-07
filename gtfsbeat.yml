@@ -5,6 +5,8 @@
 gtfsbeat:
   # Defines how often an event is sent to the output
   period: 1s
+  # The url from which to fetch the gtfs data
+  #url: 
 
 #================================ General =====================================
 
