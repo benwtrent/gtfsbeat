@@ -4,9 +4,8 @@
 
 gtfsbeat:
   # Defines how often an event is sent to the output
-  period: 1s
-  # The url from which to fetch the gtfs data
-  #url: 
+  period: 1m
+	url:    "http://gtfs.viainfo.net/gtfs-realtime/trapezerealtimefeed.pb",
 
 #================================ General =====================================
 

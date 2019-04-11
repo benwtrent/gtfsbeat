@@ -1,5 +1,5 @@
 gtfsbeat:
-  period: 1s
+  period: 1m
 processors:
 - add_cloud_metadata: ~
 

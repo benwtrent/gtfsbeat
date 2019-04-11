@@ -12,5 +12,5 @@ type Config struct {
 
 var DefaultConfig = Config{
 	Period: 1 * time.Second,
-	URL:    "",
+	URL:    "http://gtfs.viainfo.net/gtfs-realtime/trapezerealtimefeed.pb",
 }

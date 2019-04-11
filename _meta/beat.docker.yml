@@ -1,2 +1,3 @@
 gtfsbeat:
-  period: 1s
+  period: 1m
+  url:    "http://gtfs.viainfo.net/gtfs-realtime/trapezerealtimefeed.pb",

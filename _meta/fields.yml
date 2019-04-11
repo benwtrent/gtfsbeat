@@ -2,8 +2,118 @@
   title: gtfsbeat
   description:
   fields:
-    - name: counter
-      type: long
+    - name: type
+      type: keyword
       required: true
       description: >
-        PLEASE UPDATE DOCUMENTATION
+        The type of GTFS event. One of vehicle, alert, trip_update
+    - name: entity_id
+      type: keyword
+      required: true 
+      description: >
+        The entity ID
+    - name: url
+      type: text
+      required: false
+      description: >
+        A URL containing more information
+    - name: alert_cause
+      type: keyword
+      required: false
+    - name: alert_effect
+      type: keyword
+      required: false
+    - name: active_period 
+      type: date_range
+      required: false
+    - name: agency_id 
+      type: keyword
+      required: false
+    - name: route_id 
+      type: keyword
+      required: false
+    - name: route_type 
+      type: integer
+      required: false
+    - name: stop 
+      type: keyword
+      required: false
+    - name: trip.id
+      type: keyword
+      required: false
+    - name: trip.route_id 
+      type: keyword
+      required: false
+    - name: trip.start_time
+      type: date
+      required: false
+    - name: trip.state 
+      type: keyword
+      required: false
+    - name: header
+      type: text
+      required: false
+    - name: description
+      type: text
+      required: false
+    - name: vehicle.id
+      type: keyword
+      required: false
+    - name: vehicle.label
+      type: keyword
+      required: false
+    - name: vehicle.license_plate
+      type: keyword
+      required: false
+    - name: pos
+      type: geo_point
+      required: false
+    - name: bearing
+      type: float
+      required: false
+    - name: odometer_meters
+      type: float
+      required: false
+    - name: speed_meters
+      type: float
+      required: false
+    - name: timestamp
+      type: date
+      required: false
+    - name: stop_seq
+      type: long
+      required: false
+    - name: stop_status
+      type: keyword
+      required: false
+    - name: congestion
+      type: keyword
+      required: false
+    - name: occupancy
+      type: keyword
+      required: false
+    - name: delay
+      type: long
+      required: false
+    - name: arrival.delay
+      type: integer
+      required: false
+    - name: arrival.time
+      type: date
+      required: false
+    - name: arrival.uncertainty
+      type: integer
+      required: false
+    - name: departure.delay
+      type: integer
+      required: false
+    - name: departure.time
+      type: date
+      required: false
+    - name: departure.uncertainty
+      type: integer
+      required: false
+    - name: stop_relationship
+      type: keyword
+      required: false
+    

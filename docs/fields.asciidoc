@@ -3392,15 +3392,336 @@ Version of the user agent.
 None
 
 
-*`counter`*::
+*`type`*::
++
+--
+type: keyword
+
+required: True
+
+The type of GTFS event. One of vehicle, alert, trip_update
+
+
+--
+
+*`entity_id`*::
++
+--
+type: keyword
+
+required: True
+
+The entity ID
+
+
+--
+
+*`url`*::
++
+--
+type: text
+
+required: False
+
+A URL containing more information
+
+
+--
+
+*`alert_cause`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`alert_effect`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`active_period`*::
++
+--
+type: date_range
+
+required: False
+
+--
+
+*`agency_id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`route_id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`route_type`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`stop`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`trip.id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`trip.route_id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`trip.start_time`*::
++
+--
+type: date
+
+required: False
+
+--
+
+*`trip.state`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`header`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`description`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`vehicle.id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`vehicle.label`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`vehicle.license_plate`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`pos`*::
++
+--
+type: geo_point
+
+required: False
+
+--
+
+*`bearing`*::
++
+--
+type: float
+
+required: False
+
+--
+
+*`odometer_meters`*::
++
+--
+type: float
+
+required: False
+
+--
+
+*`speed_meters`*::
++
+--
+type: float
+
+required: False
+
+--
+
+*`timestamp`*::
++
+--
+type: date
+
+required: False
+
+--
+
+*`stop_seq`*::
 +
 --
 type: long
 
-required: True
+required: False
 
-PLEASE UPDATE DOCUMENTATION
+--
 
+*`stop_status`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`congestion`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`occupancy`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`delay`*::
++
+--
+type: long
+
+required: False
+
+--
+
+*`arrival.delay`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`arrival.time`*::
++
+--
+type: date
+
+required: False
+
+--
+
+*`arrival.uncertainty`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`departure.delay`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`departure.time`*::
++
+--
+type: date
+
+required: False
+
+--
+
+*`departure.uncertainty`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`stop_relationship`*::
++
+--
+type: keyword
+
+required: False
 
 --
 
