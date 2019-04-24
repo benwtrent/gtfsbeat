@@ -3482,7 +3482,97 @@ required: False
 
 --
 
-*`stop`*::
+*`stop.id`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`stop.location_type`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`stop.parent_station`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`stop.code`*::
++
+--
+type: keyword
+
+required: False
+
+--
+
+*`stop.desc`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`stop.name`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`stop.pos`*::
++
+--
+type: geopoint
+
+required: False
+
+--
+
+*`stop.timezone`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`stop.url`*::
++
+--
+type: text
+
+required: False
+
+--
+
+*`stop.wheelchair_boarding`*::
++
+--
+type: integer
+
+required: False
+
+--
+
+*`stop.zone_id`*::
 +
 --
 type: keyword
@@ -3504,6 +3594,15 @@ required: False
 +
 --
 type: keyword
+
+required: False
+
+--
+
+*`trip.direction_id`*::
++
+--
+type: long
 
 required: False
 
@@ -3599,7 +3698,16 @@ required: False
 
 --
 
-*`speed_meters`*::
+*`speed_meters_per_sec`*::
++
+--
+type: float
+
+required: False
+
+--
+
+*`speed_mph`*::
 +
 --
 type: float

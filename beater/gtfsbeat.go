@@ -1,10 +1,15 @@
 package beater
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -15,13 +20,6 @@ import (
 	"github.com/benwtrent/gtfsbeat/config"
 	"github.com/benwtrent/gtfsbeat/transit_realtime"
 )
-
-// Gtfsbeat configuration.
-type Gtfsbeat struct {
-	done   chan struct{}
-	config config.Config
-	client beat.Client
-}
 
 //TimeRange simple timerange
 type TimeRange struct {
@@ -40,24 +38,39 @@ type Trip struct {
 
 //GeoPoint simple geopoint type
 type GeoPoint struct {
-	Lat  *float32 `json:"lat,omitempty"`
-	Long *float32 `json:"long,omitempty"`
+	Lat  float32 `json:"lat"`
+	Long float32 `json:"long"`
+}
+
+//Stop static gtfs stop definition
+type Stop struct {
+	ID                string
+	LocationType      string
+	ParentStation     string
+	Code              string
+	Description       string
+	Name              string
+	Position          GeoPoint
+	Timezone          string
+	URL               string
+	WheelcharBoarding uint64
+	ZoneID            string
 }
 
 //DenormalizedAlert An denormalized alert, indicating some sort of incident in the public transit network.
 type DenormalizedAlert struct {
-	Type            string     `json:"type"`
-	ActivePeriod    *TimeRange `json:"active_period,omitempty"`
-	AgencyID        *string    `json:"agency_id,omitempty"`
-	RouteID         *string    `json:"route_id,omitempty"`
-	RouteType       *int32     `json:"route_type,omitempty"`
-	Trip            *Trip      `json:"trip,omitempty"`
-	StopID          *string    `json:"stop_id,omitempty"`
-	Cause           string     `json:"cause,omitempty"`
-	Effect          string     `json:"effect,omitempty"`
-	URL             *string    `json:"url,omitempty"`
-	HeaderText      *string    `json:"header_text,omitempty"`
-	DescriptionText *string    `json:"description_text,omitempty"`
+	Type            string       `json:"type"`
+	ActivePeriod    *[]TimeRange `json:"active_period,omitempty"`
+	AgencyID        *string      `json:"agency_id,omitempty"`
+	RouteID         *string      `json:"route_id,omitempty"`
+	RouteType       *int32       `json:"route_type,omitempty"`
+	Trip            *Trip        `json:"trip,omitempty"`
+	StopID          *string      `json:"stop_id,omitempty"`
+	Cause           string       `json:"cause,omitempty"`
+	Effect          string       `json:"effect,omitempty"`
+	URL             *string      `json:"url,omitempty"`
+	HeaderText      *string      `json:"header_text,omitempty"`
+	DescriptionText *string      `json:"description_text,omitempty"`
 }
 
 //Vehicle identification information
@@ -103,19 +116,255 @@ type TripUpdate struct {
 	ScheduleRelationship *string    `json:"stop_relationship,omitempty"`
 }
 
+// Gtfsbeat configuration.
+type Gtfsbeat struct {
+	done        chan struct{}
+	config      config.Config
+	client      beat.Client
+	lastUpdated time.Time
+	Stops       map[string]Stop
+}
+
+func addStringIfNotEmpty(key string, val string, e *beat.Event) {
+	if len(val) > 0 && e != nil {
+		e.PutValue(key, val)
+	}
+}
+
+func addStringIfNotNull(key string, val *string, e *beat.Event) {
+	if val != nil && e != nil {
+		addStringIfNotEmpty(key, *val, e)
+	}
+}
+
+func addUint32IfNotNull(key string, val *uint32, e *beat.Event) {
+	if val != nil && e != nil {
+		e.PutValue(key, *val)
+	}
+}
+
+func addFloat32IfNotNull(key string, val *float32, e *beat.Event) {
+	if val != nil && e != nil {
+		e.PutValue(key, *val)
+	}
+}
+
+func addFloat64IfNotNull(key string, val *float64, e *beat.Event) {
+	if val != nil && e != nil {
+		e.PutValue(key, *val)
+	}
+}
+
+func addStop(stop Stop, e *beat.Event) {
+	if e != nil {
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+		addStringIfNotEmpty("stop.location_type", stop.LocationType, e)
+		addStringIfNotEmpty("stop.parent_station", stop.ParentStation, e)
+		addStringIfNotEmpty("stop.code", stop.Code, e)
+		addStringIfNotEmpty("stop.desc", stop.Description, e)
+		addStringIfNotEmpty("stop.name", stop.Name, e)
+		addStringIfNotEmpty("stop.timezone", stop.Timezone, e)
+		addStringIfNotEmpty("stop.url", stop.URL, e)
+		if stop.Position.Lat != 0 {
+			e.PutValue("stop.pos", fmt.Sprint("%f,%f", stop.Position.Lat, stop.Position.Long))
+		}
+		e.PutValue("stop.wheelchair_boarding", stop.WheelcharBoarding)
+		addStringIfNotEmpty("stop.zone_id", stop.ZoneID, e)
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+		addStringIfNotEmpty("stop.id", stop.ID, e)
+	}
+}
+
+func addTrip(trip *transit_realtime.TripDescriptor, e *beat.Event) {
+	if trip != nil && e != nil {
+		addStringIfNotNull("trip.id", trip.TripId, e)
+		addStringIfNotNull("trip.route_id", trip.RouteId, e)
+		addUint32IfNotNull("trip.direction_id", trip.DirectionId, e)
+		e.PutValue("trip.state", trip.GetScheduleRelationship().String())
+		addStringIfNotNull("trip.id", trip.TripId, e)
+		if trip.StartTime != nil {
+			date := time.Now()
+			if trip.StartDate != nil {
+				var err error
+				date, err = time.Parse("20060102", *trip.StartDate)
+				if err != nil {
+					logp.Error(err)
+				} else {
+					date = time.Now()
+				}
+			}
+			year, month, day := date.Date()
+			startTime, err := time.Parse("20060102 15:04:05", string(year)+string(month)+string(day)+" "+*trip.StartTime)
+			if err != nil {
+				logp.Error(err)
+			} else {
+				e.PutValue("trip.start_time", startTime)
+			}
+		}
+	}
+}
+
+func addVehicleDescriptors(vehicleDescriptors *transit_realtime.VehicleDescriptor, e *beat.Event) {
+	if vehicleDescriptors != nil && e != nil {
+		addStringIfNotNull("vehicle.id", vehicleDescriptors.Id, e)
+		addStringIfNotNull("vehicle.label", vehicleDescriptors.Label, e)
+		addStringIfNotNull("vehicle.license_plate", vehicleDescriptors.LicensePlate, e)
+	}
+}
+
 //DenormalizeAlert denormalizes a gtfs alert
-func DenormalizeAlert(alert *transit_realtime.Alert) []DenormalizedAlert {
-	return []DenormalizedAlert{}
+func DenormalizeAlert(alert *transit_realtime.Alert) []beat.Event {
+	events := make([]beat.Event, len(alert.InformedEntity))
+	timeRange := make([]TimeRange, len(alert.ActivePeriod))
+	for i, t := range alert.ActivePeriod {
+		timeRange[i] = TimeRange{t.Start, t.End}
+	}
+
+	for i, entity := range alert.GetInformedEntity() {
+		event := beat.Event{}
+		id := ""
+		if entity.AgencyId != nil {
+			id += *entity.AgencyId
+		}
+		if entity.RouteId != nil {
+			id += *entity.RouteId
+		}
+		if entity.StopId != nil {
+			id += *entity.StopId
+		}
+		if alert.DescriptionText != nil {
+			h := fnv.New32a()
+			h.Write([]byte(*(*alert.DescriptionText).GetTranslation()[0].Text))
+			id += string(h.Sum32())
+		}
+		event.SetID(id)
+		event.PutValue("alert_cause", alert.GetCause().String())
+		event.PutValue("alert_effect", alert.GetEffect().String())
+		if len(timeRange) > 0 {
+			event.PutValue("active_period", timeRange)
+		}
+		if alert.Url != nil {
+			event.PutValue("url", alert.Url.GetTranslation()[0])
+		}
+		if alert.DescriptionText != nil {
+			event.PutValue("description", alert.DescriptionText.GetTranslation()[0])
+		}
+		if alert.HeaderText != nil {
+			event.PutValue("header", alert.HeaderText.GetTranslation()[0])
+		}
+		addStringIfNotNull("agency_id", entity.AgencyId, &event)
+		addStringIfNotNull("route_id", entity.AgencyId, &event)
+		addStringIfNotNull("route_type", entity.AgencyId, &event)
+		addStringIfNotNull("stop", entity.AgencyId, &event)
+		addTrip(entity.Trip, &event)
+		events[i] = event
+	}
+	return events
 }
 
 //TransformVehicle transforms a gtfs vehicle position
-func TransformVehicle(vehicle *transit_realtime.VehiclePosition) VehicleStatus {
-	return VehicleStatus{}
+func (bt *Gtfsbeat) TransformVehicle(vehicle *transit_realtime.VehiclePosition) beat.Event {
+	event := beat.Event{
+		Fields: common.MapStr{},
+	}
+	event.PutValue("congestion", vehicle.GetCongestionLevel().String())
+	event.PutValue("occupancy", vehicle.GetOccupancyStatus().String())
+	event.PutValue("stop_status", vehicle.GetCurrentStatus().String())
+	addTrip(vehicle.Trip, &event)
+	addVehicleDescriptors(vehicle.Vehicle, &event)
+	if vehicle.Position != nil {
+		if vehicle.Position.Latitude != nil && vehicle.Position.Longitude != nil {
+			event.PutValue("pos", fmt.Sprintf("%f,%f", *vehicle.Position.Latitude, *vehicle.Position.Longitude))
+		}
+		addFloat32IfNotNull("bearing", vehicle.Position.Bearing, &event)
+		addFloat64IfNotNull("odometer_meters", vehicle.Position.Odometer, &event)
+		addFloat32IfNotNull("speed_meters_per_sec", vehicle.Position.Speed, &event)
+		if vehicle.Position.Speed != nil {
+			event.PutValue("speed_mph", (*vehicle.Position.Speed)*2.2369362921)
+		}
+		addFloat32IfNotNull("speed_meters_per_sec", vehicle.Position.Speed, &event)
+	}
+	addUint32IfNotNull("stop_seq", vehicle.CurrentStopSequence, &event)
+	if vehicle.Timestamp != nil {
+		event.Timestamp = time.Unix(int64(*vehicle.Timestamp), 0)
+	}
+	if vehicle.StopId != nil {
+		logp.Info("stopid %s", *vehicle.StopId)
+		logp.Info("seq %d", *vehicle.CurrentStopSequence)
+		event.PutValue("stop.id", *vehicle.StopId)
+		if stop, ok := bt.Stops[*vehicle.StopId]; ok {
+			if ok {
+				addStop(stop, &event)
+			} else {
+				logp.Warn("Unrecognized stop id %s", *vehicle.StopId)
+			}
+		}
+	}
+	event.PutValue("stop_status", vehicle.GetCurrentStatus().String())
+	return event
 }
 
 //DenormalizeTripUpdate denormalizes a gtfs trip update
-func DenormalizeTripUpdate(tripupdate *transit_realtime.TripUpdate) []TripUpdate {
-	return []TripUpdate{}
+func DenormalizeTripUpdate(tripupdate *transit_realtime.TripUpdate) beat.Event {
+	event := beat.Event{}
+	addTrip(tripupdate.Trip, &event)
+	addVehicleDescriptors(tripupdate.Vehicle, &event)
+	// TODO fix....
+	return event
+}
+
+func parseStops(fileName string) (map[string]Stop, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		logp.Error(err)
+		return nil, err
+	}
+	defer f.Close()
+	csvr := csv.NewReader(f)
+	stops := map[string]Stop{}
+	for {
+		row, err := csvr.Read()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return stops, err
+		}
+		// Skip the header
+		if row[0] == "stop_id" {
+			continue
+		}
+		stop := Stop{
+			ID:            row[0],
+			Code:          row[1],
+			Name:          row[2],
+			Description:   row[3],
+			ZoneID:        row[6],
+			URL:           row[7],
+			LocationType:  row[8],
+			ParentStation: row[9],
+			Timezone:      row[10],
+		}
+		if stop.WheelcharBoarding, err = strconv.ParseUint(row[11], 10, 64); err != nil {
+			return nil, err
+		}
+		var lat float64
+		var lon float64
+		if lat, err = strconv.ParseFloat(row[4], 64); err != nil {
+			return nil, err
+		}
+		if lon, err = strconv.ParseFloat(row[5], 64); err != nil {
+			return nil, err
+		}
+		stop.Position = GeoPoint{
+			Lat:  float32(lat),
+			Long: float32(lon),
+		}
+		stops[row[0]] = stop
+	}
 }
 
 // New creates an instance of gtfsbeat.
@@ -124,10 +373,16 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 	if err := cfg.Unpack(&c); err != nil {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
-
 	bt := &Gtfsbeat{
-		done:   make(chan struct{}),
-		config: c,
+		done:        make(chan struct{}),
+		config:      c,
+		lastUpdated: time.Now().UTC(),
+	}
+	var err error
+	bt.Stops, err = parseStops(c.Stops)
+	if err != nil {
+		logp.Error(err)
+		return nil, err
 	}
 	return bt, nil
 }
@@ -155,6 +410,15 @@ func (bt *Gtfsbeat) GetGtfsFeed() ([]*transit_realtime.FeedEntity, error) {
 		logp.Warn("Received gtfs realtime response but with errors: %s", sbody)
 		return feed.Entity, errors.New(sbody)
 	}
+	if resp.Header.Get("Last-Modified") != "" {
+		if lastModified, err := http.ParseTime(resp.Header.Get("Last-Modified")); err != nil {
+			if lastModified.Before(bt.lastUpdated) {
+				logp.Info("Data has not been updated since %s. Last update %s", lastModified, bt.lastUpdated)
+				return nil, nil
+			}
+			bt.lastUpdated = lastModified
+		}
+	}
 	if err := proto.Unmarshal(body, &feed); err != nil {
 		logp.Error(err)
 		return nil, err
@@ -181,36 +445,20 @@ func (bt *Gtfsbeat) Run(b *beat.Beat) error {
 		case <-ticker.C:
 		}
 		feedentity, err := bt.GetGtfsFeed()
+		events := []beat.Event{}
 		if err != nil {
 			logp.Error(err)
-		} else {
+		} else if feedentity != nil {
 			for _, entity := range feedentity {
-				fmt.Println("ENTITY")
-				if entity.Id != nil {
-					fmt.Printf("Entity ID: %v \n", *entity.Id)
-				} else {
-					fmt.Println("<nil>")
-				}
 				if entity.Vehicle != nil {
-					fmt.Printf("Vehicle: %+v\n", *entity.Vehicle)
-				}
-				if entity.Alert != nil {
-					fmt.Printf("Alert: %+v\n", *entity.Alert)
-				}
-				if entity.TripUpdate != nil {
-					fmt.Printf("TripUpdate: %+v\n", *entity.TripUpdate)
+					events = append(events, bt.TransformVehicle(entity.Vehicle))
 				}
 			}
 		}
-		event := beat.Event{
-			Timestamp: time.Now(),
-			Fields: common.MapStr{
-				"type":    b.Info.Name,
-				"counter": counter,
-			},
+		if len(events) > 0 {
+			bt.client.PublishAll(events)
 		}
-		bt.client.Publish(event)
-		logp.Info("Event sent")
+		logp.Info("Events sent: %d", len(events))
 		counter++
 	}
 }

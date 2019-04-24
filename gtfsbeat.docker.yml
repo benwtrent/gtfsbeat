@@ -1,5 +1,6 @@
 gtfsbeat:
   period: 1m
+  url:    "http://gtfs.viainfo.net/gtfs-realtime/trapezerealtimefeed.pb",
 processors:
 - add_cloud_metadata: ~
 

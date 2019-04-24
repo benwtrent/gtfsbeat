@@ -35,7 +35,37 @@
     - name: route_type 
       type: integer
       required: false
-    - name: stop 
+    - name: stop.id
+      type: keyword
+      required: false
+    - name: stop.location_type
+      type: keyword
+      required: false
+    - name: stop.parent_station
+      type: keyword
+      required: false
+    - name: stop.code
+      type: keyword
+      required: false
+    - name: stop.desc
+      type: text
+      required: false
+    - name: stop.name
+      type: text
+      required: false
+    - name: stop.pos
+      type: geopoint
+      required: false
+    - name: stop.timezone
+      type: text
+      required: false
+    - name: stop.url
+      type: text
+      required: false
+    - name: stop.wheelchair_boarding
+      type: integer
+      required: false
+    - name: stop.zone_id
       type: keyword
       required: false
     - name: trip.id
@@ -43,6 +73,9 @@
       required: false
     - name: trip.route_id 
       type: keyword
+      required: false
+    - name: trip.direction_id
+      type: long
       required: false
     - name: trip.start_time
       type: date
@@ -74,7 +107,10 @@
     - name: odometer_meters
       type: float
       required: false
-    - name: speed_meters
+    - name: speed_meters_per_sec
+      type: float
+      required: false
+    - name: speed_mph
       type: float
       required: false
     - name: timestamp
