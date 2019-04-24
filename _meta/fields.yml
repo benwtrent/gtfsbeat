@@ -54,7 +54,7 @@
       type: text
       required: false
     - name: stop.pos
-      type: geopoint
+      type: geo_point
       required: false
     - name: stop.timezone
       type: text

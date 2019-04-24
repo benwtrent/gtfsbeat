@@ -3539,7 +3539,7 @@ required: False
 *`stop.pos`*::
 +
 --
-type: geopoint
+type: geo_point
 
 required: False
 
